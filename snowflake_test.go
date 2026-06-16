@@ -371,9 +371,7 @@ func BenchmarkGenerate(b *testing.B) {
 }
 
 func BenchmarkGenerateMaxSequence(b *testing.B) {
-
-	NodeBits = 1
-	StepBits = 21
+	// NodeBits and StepBits are now constants, using default bit layout
 	node, _ := NewNode(1)
 
 	b.ReportAllocs()
@@ -392,6 +390,22 @@ func TestGenID(t *testing.T) {
 		for i := 0; i < 1; i++ {
 			id := node.Generate().Int64()
 			count[id%10]++
+		}
+
+		fmt.Println(count)
+	})
+}
+
+// go test -count=1 -v -run TestGenUID
+func TestGenUID(t *testing.T) {
+	var count = [10]int{}
+	node, _ := NewNodeWithBitsCfg(0, 1735660800000, 4, 4, 41)
+	t.Run("TestGenUID", func(t *testing.T) {
+		for i := 0; i < 10; i++ {
+			id := node.Generate().Int64()
+			count[id%10]++
+			fmt.Println(id)
+
 		}
 
 		fmt.Println(count)

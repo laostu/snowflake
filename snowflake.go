@@ -9,27 +9,26 @@ import (
 	"time"
 )
 
-var (
+const (
 	// Epoch is set to the twitter snowflake epoch of 2026-01-01 00:00:00 UTC in milliseconds
 	// You may customize this to set a different epoch for your application.
 	Epoch int64 = 1288834974657
 
+	// TimeBits holds the number of bits to use for Time
 	TimeBits uint8 = 41
+
 	// NodeBits holds the number of bits to use for Node
-	// Remember, you have a total 22 bits to share between Node/Step
 	NodeBits uint8 = 10
 
 	// StepBits holds the number of bits to use for Step
-	// Remember, you have a total 22 bits to share between Node/Step
 	StepBits uint8 = 12
 
 	nodeMax   int64 = -1 ^ (-1 << NodeBits)
-	nodeMask        = nodeMax << (StepBits + TimeBits)
+	nodeMask  int64 = nodeMax << (StepBits + TimeBits)
 	timeMask  int64 = -1 ^ (-1 << TimeBits)
 	stepMask  int64 = -1 ^ (-1 << StepBits)
-	nodeShift       = StepBits + TimeBits
-	stepShift       = TimeBits
-	mu        sync.Mutex
+	nodeShift uint8 = StepBits + TimeBits
+	stepShift uint8 = TimeBits
 )
 
 const encodeBase32Map = "ybndrfg8ejkmcpqxot1uwisza345h769"
@@ -96,26 +95,16 @@ type ID int64
 // NewNode 返回一个新的雪花节点，可用于生成雪花 ID
 func NewNode(node int64) (*Node, error) {
 
-	// 重新计算，以防设置了自定义的 NodeBits 或 StepBits
-	// 已弃用：以下代码块将在未来的版本中移除。
-	mu.Lock()
-	nodeMax = -1 ^ (-1 << NodeBits)
-	nodeMask = nodeMax << (StepBits + TimeBits)
-	timeMask = -1 ^ (-1 << TimeBits)
-	stepMask = -1 ^ (-1 << StepBits)
-	nodeShift = StepBits + TimeBits
-	stepShift = TimeBits
-	mu.Unlock()
-
 	n := Node{}
 	n.node = node
-	n.nodeMax = -1 ^ (-1 << NodeBits)
-	n.nodeMask = n.nodeMax << (StepBits + TimeBits)
+	n.nodeMax = nodeMax
+	n.nodeMask = nodeMask
 	// timestamp now sits in the lowest bits
-	n.stepMask = -1 ^ (-1 << StepBits)
+	n.stepMask = stepMask
+	n.step = stepMask
 	n.timeShift = 0
-	n.nodeShift = StepBits + TimeBits
-	n.stepShift = TimeBits
+	n.nodeShift = nodeShift
+	n.stepShift = stepShift
 
 	if n.node < 0 || n.node > n.nodeMax {
 		return nil, errors.New("Node number must be between 0 and " + strconv.FormatInt(n.nodeMax, 10))
@@ -124,6 +113,29 @@ func NewNode(node int64) (*Node, error) {
 	var curTime = time.Now()
 	// 向 curTime 添加 time.Duration，以确保在可用时使用单调时钟
 	n.epoch = curTime.Add(time.Unix(Epoch/1000, (Epoch%1000)*1000000).Sub(curTime))
+
+	return &n, nil
+}
+
+// NewNodeWithBitsCfg 可生成自定义长度ID的Node
+func NewNodeWithBitsCfg(node int64, epoch int64, nodeBits, stepBits, timeBits uint8) (*Node, error) {
+	n := Node{}
+	n.node = node
+	n.nodeMax = -1 ^ (-1 << nodeBits)
+	n.nodeMask = n.nodeMax << (stepBits + timeBits)
+	n.stepMask = -1 ^ (-1 << stepBits)
+	n.step = n.stepMask
+	n.timeShift = 0
+	n.nodeShift = stepBits + timeBits
+	n.stepShift = timeBits
+
+	if n.node < 0 || n.node > n.nodeMax {
+		return nil, errors.New("Node number must be between 0 and " + strconv.FormatInt(n.nodeMax, 10))
+	}
+
+	var curTime = time.Now()
+	// 向 curTime 添加 time.Duration，以确保在可用时使用单调时钟
+	n.epoch = curTime.Add(time.Unix(epoch/1000, (epoch%1000)*1000000).Sub(curTime))
 
 	return &n, nil
 }
