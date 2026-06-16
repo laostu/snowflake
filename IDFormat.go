@@ -88,15 +88,15 @@ func (f ID) IntBytes() [8]byte {
 
 // Time 返回雪花 ID 时间的 int64 毫秒级 Unix 时间戳
 func (f ID) Time() int64 {
-	return (int64(f) >> timeShift) + Epoch
+	return (int64(f) & timeMask) + Epoch
 }
 
 // Node 返回雪花 ID 节点编号的 int64 值
 func (f ID) Node() int64 {
-	return int64(f) & nodeMask >> nodeShift
+	return (int64(f) & nodeMask) >> nodeShift
 }
 
 // Step 返回雪花 ID 步长（或序列号）的 int64 值
 func (f ID) Step() int64 {
-	return int64(f) & stepMask
+	return (int64(f) >> stepShift) & stepMask
 }

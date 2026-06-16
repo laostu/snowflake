@@ -1,8 +1,7 @@
 package snowflake
 
 import (
-	"bytes"
-	"reflect"
+	"fmt"
 	"testing"
 )
 
@@ -162,7 +161,7 @@ func TestBase32(t *testing.T) {
 
 		sf := node.Generate()
 		b32i := sf.Base32()
-		psf, err := ParseBase32([]byte(b32i))
+		psf, err := ParseBase32(b32i)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -213,7 +212,7 @@ func TestBase58(t *testing.T) {
 
 		sf := node.Generate()
 		b58 := sf.Base58()
-		psf, err := ParseBase58([]byte(b58))
+		psf, err := ParseBase58(b58)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -306,55 +305,6 @@ func TestIntBytes(t *testing.T) {
 
 }
 
-//******************************************************************************
-// 序列化测试方法
-
-func TestMarshalJSON(t *testing.T) {
-	id := ID(13587)
-	expected := "\"13587\""
-
-	bytes, err := id.MarshalJSON()
-	if err != nil {
-		t.Fatalf("Unexpected error during MarshalJSON")
-	}
-
-	if string(bytes) != expected {
-		t.Fatalf("Got %s, expected %s", string(bytes), expected)
-	}
-}
-
-func TestMarshalsIntBytes(t *testing.T) {
-	id := ID(13587).IntBytes()
-	expected := []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x35, 0x13}
-	if !bytes.Equal(id[:], expected) {
-		t.Fatalf("Expected ID to be encoded as %v, got %v", expected, id)
-	}
-}
-
-func TestUnmarshalJSON(t *testing.T) {
-	tt := []struct {
-		json        string
-		expectedID  ID
-		expectedErr error
-	}{
-		{`"13587"`, 13587, nil},
-		{`1`, 0, JSONSyntaxError{[]byte(`1`)}},
-		{`"invalid`, 0, JSONSyntaxError{[]byte(`"invalid`)}},
-	}
-
-	for _, tc := range tt {
-		var id ID
-		err := id.UnmarshalJSON([]byte(tc.json))
-		if !reflect.DeepEqual(err, tc.expectedErr) {
-			t.Fatalf("Expected to get error '%s' decoding JSON, but got '%s'", tc.expectedErr, err)
-		}
-
-		if id != tc.expectedID {
-			t.Fatalf("Expected to get ID '%s' decoding JSON, but got '%s'", tc.expectedID, id)
-		}
-	}
-}
-
 // ****************************************************************************
 // 基准测试方法
 
@@ -368,7 +318,7 @@ func BenchmarkParseBase32(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		ParseBase32([]byte(b32i))
+		ParseBase32(b32i)
 	}
 }
 func BenchmarkBase32(b *testing.B) {
@@ -393,7 +343,7 @@ func BenchmarkParseBase58(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		ParseBase58([]byte(b58))
+		ParseBase58(b58)
 	}
 }
 func BenchmarkBase58(b *testing.B) {
@@ -434,29 +384,16 @@ func BenchmarkGenerateMaxSequence(b *testing.B) {
 	}
 }
 
-func BenchmarkUnmarshal(b *testing.B) {
-	// 生成要反序列化的 ID
-	node, _ := NewNode(1)
-	id := node.Generate()
-	bytes, _ := id.MarshalJSON()
+// go test -count=1 -v -run TestGenID
+func TestGenID(t *testing.T) {
+	var count = [10]int{}
+	node, _ := NewNode(2)
+	t.Run("TestGenID", func(t *testing.T) {
+		for i := 0; i < 1; i++ {
+			id := node.Generate().Int64()
+			count[id%10]++
+		}
 
-	var id2 ID
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		_ = id2.UnmarshalJSON(bytes)
-	}
-}
-
-func BenchmarkMarshal(b *testing.B) {
-	// 生成要序列化的 ID
-	node, _ := NewNode(1)
-	id := node.Generate()
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		_, _ = id.MarshalJSON()
-	}
+		fmt.Println(count)
+	})
 }

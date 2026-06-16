@@ -14,6 +14,7 @@ var (
 	// You may customize this to set a different epoch for your application.
 	Epoch int64 = 1288834974657
 
+	TimeBits uint8 = 41
 	// NodeBits holds the number of bits to use for Node
 	// Remember, you have a total 22 bits to share between Node/Step
 	NodeBits uint8 = 10
@@ -22,12 +23,13 @@ var (
 	// Remember, you have a total 22 bits to share between Node/Step
 	StepBits uint8 = 12
 
-	mu        sync.Mutex
 	nodeMax   int64 = -1 ^ (-1 << NodeBits)
-	nodeMask        = nodeMax << StepBits
+	nodeMask        = nodeMax << (StepBits + TimeBits)
+	timeMask  int64 = -1 ^ (-1 << TimeBits)
 	stepMask  int64 = -1 ^ (-1 << StepBits)
-	timeShift       = NodeBits + StepBits
-	nodeShift       = StepBits
+	nodeShift       = StepBits + TimeBits
+	stepShift       = TimeBits
+	mu        sync.Mutex
 )
 
 const encodeBase32Map = "ybndrfg8ejkmcpqxot1uwisza345h769"
@@ -85,6 +87,7 @@ type Node struct {
 	stepMask  int64
 	timeShift uint8
 	nodeShift uint8
+	stepShift uint8
 }
 
 // ID 是用于雪花 ID 的自定义类型，以便我们可以在 ID 上附加方法。
@@ -97,19 +100,22 @@ func NewNode(node int64) (*Node, error) {
 	// 已弃用：以下代码块将在未来的版本中移除。
 	mu.Lock()
 	nodeMax = -1 ^ (-1 << NodeBits)
-	nodeMask = nodeMax << StepBits
+	nodeMask = nodeMax << (StepBits + TimeBits)
+	timeMask = -1 ^ (-1 << TimeBits)
 	stepMask = -1 ^ (-1 << StepBits)
-	timeShift = NodeBits + StepBits
-	nodeShift = StepBits
+	nodeShift = StepBits + TimeBits
+	stepShift = TimeBits
 	mu.Unlock()
 
 	n := Node{}
 	n.node = node
 	n.nodeMax = -1 ^ (-1 << NodeBits)
-	n.nodeMask = n.nodeMax << StepBits
+	n.nodeMask = n.nodeMax << (StepBits + TimeBits)
+	// timestamp now sits in the lowest bits
 	n.stepMask = -1 ^ (-1 << StepBits)
-	n.timeShift = NodeBits + StepBits
-	n.nodeShift = StepBits
+	n.timeShift = 0
+	n.nodeShift = StepBits + TimeBits
+	n.stepShift = TimeBits
 
 	if n.node < 0 || n.node > n.nodeMax {
 		return nil, errors.New("Node number must be between 0 and " + strconv.FormatInt(n.nodeMax, 10))
@@ -146,9 +152,9 @@ func (n *Node) Generate() ID {
 
 	n.time = now
 
-	r := ID((now)<<n.timeShift |
-		(n.node << n.nodeShift) |
-		(n.step),
+	r := ID((n.node << n.nodeShift) |
+		(n.step << n.stepShift) |
+		(now),
 	)
 
 	n.mu.Unlock()
