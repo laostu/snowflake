@@ -399,13 +399,13 @@ func TestGenID(t *testing.T) {
 // go test -count=1 -v -run TestGenUID
 func TestGenUID(t *testing.T) {
 	var count = [10]int{}
-	node, _ := NewNodeWithBitsCfg(0, 1735660800000, 4, 4, 41)
+	node, _ := NewNodeWithBitsCfg(0, 1767225600000, 3, 3, 39)
 	t.Run("TestGenUID", func(t *testing.T) {
 		for i := 0; i < 10; i++ {
-			id := node.Generate().Int64()
-			count[id%10]++
-			fmt.Println(id)
+			sID := node.Generate()
+			count[sID.Int64()%10]++
 
+			fmt.Println(sID.Int64(), sID.Node(), sID.Step(), sID.Time())
 		}
 
 		fmt.Println(count)

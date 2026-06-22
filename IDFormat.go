@@ -6,6 +6,9 @@ import (
 	"strconv"
 )
 
+// ID 是用于雪花 ID 的自定义类型，以便我们可以在 ID 上附加方法。
+type ID int64
+
 // Int64 返回雪花 ID 的 int64 值
 func (f ID) Int64() int64 {
 	return int64(f)

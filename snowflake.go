@@ -3,7 +3,6 @@ package snowflake
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -12,7 +11,7 @@ import (
 const (
 	// Epoch is set to the twitter snowflake epoch of 2026-01-01 00:00:00 UTC in milliseconds
 	// You may customize this to set a different epoch for your application.
-	Epoch int64 = 1288834974657
+	Epoch int64 = 1767225600000
 
 	// TimeBits holds the number of bits to use for Time
 	TimeBits uint8 = 41
@@ -38,13 +37,6 @@ var decodeBase32Map [256]byte
 const encodeBase58Map = "123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ"
 
 var decodeBase58Map [256]byte
-
-// JSONSyntaxError 在 UnmarshalJSON 解析到无效 ID 时返回。
-type JSONSyntaxError struct{ original []byte }
-
-func (j JSONSyntaxError) Error() string {
-	return fmt.Sprintf("invalid snowflake ID %q", string(j.original))
-}
 
 // ErrInvalidBase58 在 ParseBase58 接收到无效 []byte 时返回
 var ErrInvalidBase58 = errors.New("invalid base58")
@@ -84,13 +76,9 @@ type Node struct {
 	nodeMax   int64
 	nodeMask  int64
 	stepMask  int64
-	timeShift uint8
 	nodeShift uint8
 	stepShift uint8
 }
-
-// ID 是用于雪花 ID 的自定义类型，以便我们可以在 ID 上附加方法。
-type ID int64
 
 // NewNode 返回一个新的雪花节点，可用于生成雪花 ID
 func NewNode(node int64) (*Node, error) {
@@ -102,7 +90,6 @@ func NewNode(node int64) (*Node, error) {
 	// timestamp now sits in the lowest bits
 	n.stepMask = stepMask
 	n.step = stepMask
-	n.timeShift = 0
 	n.nodeShift = nodeShift
 	n.stepShift = stepShift
 
@@ -125,7 +112,6 @@ func NewNodeWithBitsCfg(node int64, epoch int64, nodeBits, stepBits, timeBits ui
 	n.nodeMask = n.nodeMax << (stepBits + timeBits)
 	n.stepMask = -1 ^ (-1 << stepBits)
 	n.step = n.stepMask
-	n.timeShift = 0
 	n.nodeShift = stepBits + timeBits
 	n.stepShift = timeBits
 
@@ -148,14 +134,14 @@ func (n *Node) Generate() ID {
 
 	n.mu.Lock()
 
-	now := time.Since(n.epoch).Nanoseconds() / 1000000
+	now := time.Since(n.epoch).Milliseconds()
 
 	if now == n.time {
 		n.step = (n.step + 1) & n.stepMask
 
 		if n.step == 0 {
 			for now <= n.time {
-				now = time.Since(n.epoch).Nanoseconds() / 1000000
+				now = time.Since(n.epoch).Milliseconds()
 			}
 		}
 	} else {
